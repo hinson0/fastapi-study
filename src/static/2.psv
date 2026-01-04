@@ -1,0 +1,7 @@
+中文术语|英文翻译|场景说明与搭配示例
+自主决策|Autonomous Decision-Making|AI领域核心术语，强调无人类干预的独立决策，搭配：autonomous decision-making system（自主决策系统）
+AI智能体|AI Agent|指能自主感知、决策、执行的AI实体，搭配：intelligent AI agent（智能AI智能体）、autonomous AI agent（自主AI智能体）
+环境感知|Environmental Perception|AI获取外部信息的能力，是决策的基础，搭配：real-time environmental perception（实时环境感知）
+决策算法|Decision Algorithm|支撑自主决策的核心技术，搭配：optimized decision algorithm（优化后的决策算法）
+自主执行|Autonomous Execution|决策后的落地动作，与自主决策衔接，搭配：autonomous execution of tasks（任务的自主执行）
+人类干预|Human Intervention|自主决策的对立面，指人类对AI决策的介入，搭配：minimize human intervention（最小化人类干预）

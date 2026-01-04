@@ -1,0 +1,482 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>猜词游戏</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: #333;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            max-width: 800px;
+            width: 100%;
+            text-align: center;
+        }
+        
+        h1 {
+            color: #4a5568;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        #status {
+            font-size: 1.5em;
+            font-weight: bold;
+            margin: 20px 0;
+            padding: 10px;
+            border-radius: 5px;
+            display: inline-block;
+        }
+        
+        .status-winning {
+            background-color: #48bb78;
+            color: white;
+        }
+        
+        .status-losing {
+            background-color: #f56565;
+            color: white;
+        }
+        
+        .status-playing {
+            background-color: #bee3f8;
+            color: #2d3748;
+        }
+        
+        #guesses {
+            width: 100%;
+            margin: 20px 0;
+            border-collapse: collapse;
+        }
+        
+        #guesses th, #guesses td {
+            border: 2px solid #cbd5e0;
+            padding: 10px;
+            text-align: center;
+        }
+        
+        #guesses th {
+            background-color: #e2e8f0;
+            font-weight: bold;
+        }
+        
+        .guess-inputs {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin: 30px 0;
+        }
+        
+        .guess-inputs input[type="text"] {
+            width: 50px;
+            height: 50px;
+            text-align: center;
+            font-size: 1.5em;
+            border: 2px solid #cbd5e0;
+            border-radius: 8px;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+        
+        .guess-inputs input[type="text"]:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 10px rgba(102, 126, 234, 0.3);
+        }
+        
+        .guess-inputs input[type="text"]:disabled {
+            background-color: #e2e8f0;
+            color: #718096;
+        }
+        
+        .submit-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1.2em;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 20px;
+        }
+        
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        
+        .submit-btn:active {
+            transform: translateY(0);
+        }
+        
+        .submit-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .letter-display {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin: 20px 0;
+            font-size: 2em;
+            font-weight: bold;
+            letter-spacing: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>猜词游戏</h1>
+        
+        <div id="status"></div>
+        
+        <table id="guesses">
+            <thead>
+                <tr>
+                    <th>猜测</th>
+                    <th>结果</th>
+                    <th>时间</th>
+                    <th>分数</th>
+                </tr>
+            </thead>
+            <tbody>
+            </tbody>
+        </table>
+        
+        <div class="letter-display" id="word-display">
+            {% for letter in word %}
+                <span>_</span>
+            {% endfor %}
+        </div>
+        
+        <div class="guess-inputs">
+            {% for letter in word %}
+                <input type="text" name="guess" maxlength="1" />
+            {% endfor %}
+            <input type="hidden" id="word" value="{{word}}"/>
+        </div>
+        
+        <button class="submit-btn" onclick="post_guess()">提交猜测</button>
+        <button class="submit-btn" onclick="resetGame()" id="reset-btn" style="display:none; margin-left: 10px;">重新开始</button>
+    </div>
+
+    <script>
+        let gameStatus = 'playing'; // 'playing', 'won', 'lost'
+        let guessCount = 0;
+        const maxGuesses = 6; // 最大猜测次数
+        let correctPositions = []; // 跟踪已正确的位置
+        
+        // 初始化输入框的键盘事件
+        function initInputEvents() {
+            document.querySelectorAll('input[name="guess"]').forEach((input, index, inputs) => {
+                input.addEventListener('input', function() {
+                    if (this.value.length === 1 && index < inputs.length - 1) {
+                        // 跳转到下一个未猜对的位置
+                        let nextIndex = index + 1;
+                        while (nextIndex < inputs.length) {
+                            if (!correctPositions[nextIndex]) {
+                                inputs[nextIndex].focus();
+                                break;
+                            }
+                            nextIndex++;
+                        }
+                    }
+                });
+                
+                input.addEventListener('keydown', function(e) {
+                    if (e.key === 'Backspace' && this.value === '' && index > 0) {
+                        // 跳转到上一个未猜对的位置
+                        let prevIndex = index - 1;
+                        while (prevIndex >= 0) {
+                            if (!correctPositions[prevIndex]) {
+                                inputs[prevIndex].focus();
+                                break;
+                            }
+                            prevIndex--;
+                        }
+                    } else if (e.key === 'Enter') {
+                        e.preventDefault(); // 防止表单默认提交
+                        post_guess(); // 调用提交函数
+                    }
+                });
+            });
+        }
+        
+        function post_guess() {
+            if (gameStatus !== 'playing') {
+                return; // 游戏结束，不再接受输入
+            }
+            
+            const inputs = document.querySelectorAll('input[name="guess"]');
+            const word = document.getElementById('word').value;
+            
+            // 构建当前猜测，保留已正确的位置
+            let guess = '';
+            for (let i = 0; i < inputs.length; i++) {
+                if (correctPositions[i]) {
+                    // 如果这个位置已经猜对了，使用正确答案
+                    guess += document.getElementById('word').value[i];
+                } else {
+                    // 否则使用用户输入
+                    guess += inputs[i].value;
+                }
+            }
+            
+            // 验证输入 - 检查未猜对的位置是否有输入
+            let hasEmptyInput = false;
+            for (let i = 0; i < inputs.length; i++) {
+                if (!correctPositions[i] && inputs[i].value === '') {
+                    hasEmptyInput = true;
+                    break;
+                }
+            }
+            
+            if (hasEmptyInput) {
+                alert('请填入所有未猜对的字母！');
+                return;
+            }
+            
+            guessCount++; // 增加猜测计数
+            
+            // 禁用按钮和输入框，防止重复提交
+            const submitBtn = document.querySelector('.submit-btn');
+            submitBtn.disabled = true;
+            
+            // 只禁用未猜对的位置，保持已猜对的位置可用但不可编辑
+            inputs.forEach((input, index) => {
+                if (!correctPositions[index]) {
+                    input.disabled = true;
+                }
+            });
+            
+            // 发送 AJAX 请求到 /score 端点
+            fetch('/game/score', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    guess: guess,
+                    word: word
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                // 更新游戏状态
+                updateGameStatus(data, guess);
+                
+                // 检查是否达到最大尝试次数
+            if (guessCount >= maxGuesses && gameStatus === 'playing') {
+                // 游戏失败
+                gameStatus = 'lost';
+                const statusDiv = document.getElementById('status');
+                statusDiv.textContent = `游戏结束！正确答案是：${word}`;
+                statusDiv.className = 'status-losing';
+                
+                // 禁用所有输入
+                document.querySelectorAll('input[name="guess"]').forEach(input => {
+                    input.disabled = true;
+                });
+                document.querySelector('.submit-btn').disabled = true;
+                
+                // 显示正确单词
+                const wordDisplay = document.getElementById('word-display');
+                wordDisplay.innerHTML = '';
+                word.split('').forEach(letter => {
+                    const span = document.createElement('span');
+                    span.textContent = letter;
+                    span.style.color = '#e53e3e'; // 红色显示正确答案
+                    span.style.textDecoration = 'underline';
+                    wordDisplay.appendChild(span);
+                });
+                
+                // 显示重置按钮
+                showResetButton();
+            }
+                
+                // 重新启用按钮和输入框（如果游戏还在进行）
+                if (gameStatus === 'playing') {
+                    submitBtn.disabled = false;
+                    inputs.forEach((input, index) => {
+                        if (!correctPositions[index]) {
+                            input.disabled = false;
+                            input.value = ''; // 只清空未猜对的位置
+                        }
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('请求失败，请重试');
+                
+                // 重新启用按钮和输入框
+                submitBtn.disabled = false;
+                inputs.forEach((input, index) => {
+                    if (!correctPositions[index]) {
+                        input.disabled = false;
+                    }
+                });
+                guessCount--; // 回退计数，因为这次尝试无效
+            });
+        }
+        
+        function updateGameStatus(response, guess) {
+            // 添加猜测记录到表格
+            const tableBody = document.querySelector('#guesses tbody');
+            const newRow = document.createElement('tr');
+            
+            const now = new Date();
+            const timeString = now.toLocaleTimeString();
+            
+            // 获取分数，如果响应中没有分数则显示"-" 
+            const score = response.score !== undefined ? response.score : '-';
+            
+            newRow.innerHTML = `
+                <td>${response.guess}</td>
+                <td>${response.correctPositions}/${response.wordLength} 个位置正确</td>
+                <td>${timeString}</td>
+                <td>${score}</td>
+            `;
+            
+            tableBody.appendChild(newRow);
+            
+            // 更新状态显示
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = `${response.correctPositions}/${response.wordLength} 个字母位置正确`;
+            
+            if (response.isCorrect) {
+                statusDiv.className = 'status-winning';
+                statusDiv.textContent = '恭喜！你猜对了！';
+                gameStatus = 'won';
+                
+                // 禁用所有输入
+                document.querySelectorAll('input[name="guess"]').forEach(input => {
+                    input.disabled = true;
+                });
+                document.querySelector('.submit-btn').disabled = true;
+                
+                // 显示重置按钮
+                showResetButton();
+                
+                // 显示正确单词
+                const wordDisplay = document.getElementById('word-display');
+                wordDisplay.innerHTML = '';
+                response.guess.split('').forEach(letter => {
+                    const span = document.createElement('span');
+                    span.textContent = letter;
+                    span.style.color = '#48bb78';
+                    span.style.textDecoration = 'underline';
+                    wordDisplay.appendChild(span);
+                });
+            } else {
+                statusDiv.className = 'status-playing';
+            }
+            
+            // 显示答案对比（在输入框中显示结果）
+            const inputs = document.querySelectorAll('input[name="guess"]');
+            const word = document.getElementById('word').value;
+            
+            for (let i = 0; i < inputs.length; i++) {
+                const userLetter = guess[i].toLowerCase();
+                const correctLetter = word[i].toLowerCase();
+                
+                if (userLetter === correctLetter) {
+                    // 正确字母 - 绿色背景
+                    inputs[i].style.backgroundColor = '#48bb78';
+                    inputs[i].style.color = 'white';
+                    // 标记此位置已猜对
+                    correctPositions[i] = true;
+                    // 禁用已猜对的输入框
+                    inputs[i].disabled = true;
+                } else {
+                    // 错误字母 - 黄色背景
+                    inputs[i].style.backgroundColor = '#f6e05e';
+                    inputs[i].style.color = 'black';
+                }
+                
+                // 只在游戏结束时显示正确答案作为占位符，其他时候只显示用户输入
+                if (gameStatus === 'lost' || response.isCorrect) {
+                    inputs[i].placeholder = correctLetter.toUpperCase();
+                }
+            }
+        }
+        
+        
+        function resetGame() {
+            // 重置游戏状态
+            gameStatus = 'playing';
+            guessCount = 0;
+            correctPositions = []; // 重置正确位置跟踪数组
+            
+            // 重置状态显示
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = '';
+            statusDiv.className = '';
+            
+            // 重置输入框
+            const inputs = document.querySelectorAll('input[name="guess"]');
+            inputs.forEach((input, index) => {
+                input.disabled = false;
+                input.value = '';
+                input.style.backgroundColor = '';
+                input.style.color = '';
+                input.placeholder = '';
+            });
+            
+            // 重置显示的单词
+            const wordDisplay = document.getElementById('word-display');
+            const word = document.getElementById('word').value;
+            wordDisplay.innerHTML = '';
+            for (let i = 0; i < word.length; i++) {
+                const span = document.createElement('span');
+                span.textContent = '_';
+                wordDisplay.appendChild(span);
+            }
+            
+            // 重置表格
+            const tableBody = document.querySelector('#guesses tbody');
+            tableBody.innerHTML = '';
+            
+            // 重新启用提交按钮
+            const submitBtn = document.querySelector('.submit-btn');
+            submitBtn.disabled = false;
+            
+            // 隐藏重置按钮
+            document.getElementById('reset-btn').style.display = 'none';
+        }
+        
+        // 在游戏结束时显示重置按钮
+        function showResetButton() {
+            document.getElementById('reset-btn').style.display = 'inline-block';
+        }
+        
+        // 页面加载完成后初始化输入事件
+        document.addEventListener('DOMContentLoaded', function() {
+            initInputEvents();
+        });
+    </script>
+</body>
+</html>
