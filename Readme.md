@@ -7,3 +7,11 @@ You can visit the game example by `http://localhost:8000/game`, and then you can
 
 ## The following is the screenshot of the game.
 ![game screenshot](./src/static/demo.png)
+
+## How to play the game?
+1. run `pip install -r requirements.txt` to install the dependencies.
+2. Make sure you have installed the dependencies.
+3. cd to `src` directory.(very important)
+4. run the fastapi application by `uvicorn main:app --reload`.
+5. Open the game example by `http://localhost:8000/game`.
+6. You can play the game by following the instructions on the screen.
